@@ -1,10 +1,11 @@
-"""test_models.py - Unit tests verifying type hints, type safety, and input validation constraints for Task Manager models."""
+"""test_models.py - Comprehensive unit tests for User and Task classes covering registration, authentication, task methods, validation, and type safety."""
 from datetime import date, datetime
 import inspect
 from typing import get_type_hints, Optional, Union
 import pytest
 from app import create_app
 from models import db, Task, User
+
 
 
 # ==========================================================
@@ -196,6 +197,19 @@ def test_valid_task_update_completed_sets_status():
     assert task.status == "completed"
 
 
+def test_valid_task_update_status_sets_completed():
+    """Verify updating status to 'completed' automatically sets completed to True."""
+    task = Task(title="In progress task", status="in-progress", completed=False)
+    task.update(status="completed")
+    assert task.completed is True
+    assert task.status == "completed"
+
+    # Also verify case-insensitivity
+    task2 = Task(title="Task 2", status="pending", completed=False)
+    task2.update(status="Completed")
+    assert task2.completed is True
+
+
 def test_valid_task_to_dict():
     """Verify Task.to_dict produces dictionary with expected keys and types."""
     task = Task(
@@ -221,6 +235,16 @@ def test_valid_task_repr():
     """Verify Task.__repr__ formatting."""
     task = Task(title="Test Repr")
     assert repr(task) == "<Task None: Test Repr>"
+
+
+def test_valid_task_repr_persisted(app):
+    """Verify Task.__repr__ formatting for persisted task with ID."""
+    with app.app_context():
+        task = Task(title="Persisted Task")
+        db.session.add(task)
+        db.session.commit()
+        assert repr(task) == f"<Task {task.id}: Persisted Task>"
+
 
 
 # ==========================================================
@@ -413,6 +437,35 @@ def test_user_creation_valid():
     assert user_no_pwd.check_password("any") is False
 
 
+def test_user_set_password():
+    """Verify User.set_password sets a new hashed password and updates check_password result."""
+    user = User(username="carol", email="carol@example.com")
+    assert user.check_password("mypassword") is False
+    user.set_password("mypassword")
+    assert user.password_hash is not None
+    assert user.password_hash != "mypassword"
+    assert user.check_password("mypassword") is True
+
+    # Updating password replaces previous hash and invalidates old password
+    user.set_password("newpassword456")
+    assert user.check_password("newpassword456") is True
+    assert user.check_password("mypassword") is False
+
+
+def test_user_check_password_without_hash():
+    """Verify check_password returns False when password_hash is empty or not set."""
+    user = User(username="nohash", email="nohash@example.com")
+    user.password_hash = ""
+    assert user.check_password("test") is False
+
+
+def test_user_get_tasks_empty():
+    """Verify User.get_tasks returns an empty list when user has no tasks."""
+    user = User(username="notasks", email="notasks@example.com")
+    assert user.get_tasks() == []
+
+
+
 @pytest.mark.parametrize("empty_user", ["", "   "])
 def test_user_creation_rejects_empty_username(empty_user):
     """Verify User creation rejects empty username."""
@@ -507,4 +560,46 @@ def test_user_authenticate_and_registration(app):
 
         # Authenticate non-existent user
         assert User.authenticate("nonexistent", "secretpassword") is None
+
+
+def test_user_get_tasks_multiple(app):
+    """Verify User.get_tasks returns all tasks belonging to the user and isolates from other users."""
+    with app.app_context():
+        user1 = User.register(username="user1", email="user1@example.com", password="pwd")
+        user2 = User.register(username="user2", email="user2@example.com", password="pwd")
+
+        t1 = Task(title="Task 1", user_id=user1.id)
+        t2 = Task(title="Task 2", user_id=user1.id)
+        t3 = Task(title="Task 3", user_id=user2.id)
+        db.session.add_all([t1, t2, t3])
+        db.session.commit()
+
+        user1_tasks = user1.get_tasks()
+        assert len(user1_tasks) == 2
+        assert {t.title for t in user1_tasks} == {"Task 1", "Task 2"}
+
+        user2_tasks = user2.get_tasks()
+        assert len(user2_tasks) == 1
+        assert user2_tasks[0].title == "Task 3"
+
+
+def test_user_to_dict_persisted(app):
+    """Verify User.to_dict includes persisted integer id."""
+    with app.app_context():
+        user = User.register(username="dictuser", email="dictuser@example.com", password="pwd")
+        d = user.to_dict()
+        assert d == {"id": user.id, "username": "dictuser", "email": "dictuser@example.com"}
+        assert isinstance(d["id"], int)
+
+
+def test_user_authenticate_user_with_empty_password_hash(app):
+    """Verify User.authenticate returns None when user in db has empty password hash."""
+    with app.app_context():
+        user = User(username="nopass_user", email="nopass_user@example.com")
+        user.password_hash = ""
+        db.session.add(user)
+        db.session.commit()
+        assert User.authenticate("nopass_user", "somepassword") is None
+
+
 
