@@ -32,10 +32,26 @@ class User(db.Model):  # type: ignore[name-defined]
         email: str,
         password: Optional[str] = None,
     ) -> None:
-        """Initialize a new User instance."""
-        self.username: str = username
-        self.email: str = email
-        if password:
+        """Initialize a new User instance with validation."""
+        if not isinstance(username, str):
+            raise TypeError(f"Username must be a string, got {type(username).__name__}")
+        clean_username = username.strip()
+        if not clean_username:
+            raise ValueError("Username cannot be empty")
+        self.username: str = clean_username
+
+        if not isinstance(email, str):
+            raise TypeError(f"Email must be a string, got {type(email).__name__}")
+        clean_email = email.strip()
+        if not clean_email or "@" not in clean_email:
+            raise ValueError("Email must be a valid non-empty email address")
+        self.email: str = clean_email
+
+        if password is not None:
+            if not isinstance(password, str):
+                raise TypeError(f"Password must be a string, got {type(password).__name__}")
+            if not password:
+                raise ValueError("Password cannot be empty")
             self.set_password(password)
 
     def set_password(self, password: str) -> None:
@@ -116,12 +132,36 @@ class Task(db.Model):  # type: ignore[name-defined]
         completed: bool = False,
         user_id: Optional[int] = None,
     ) -> None:
-        """Initialize a new Task instance."""
-        self.title: str = title
-        self.description: Optional[str] = description or ""
+        """Initialize a new Task instance with validation."""
+        if not isinstance(title, str):
+            raise TypeError(f"Title must be a string, got {type(title).__name__}")
+        clean_title = title.strip()
+        if not clean_title:
+            raise ValueError("Title cannot be empty")
+        self.title: str = clean_title
+
+        if description is not None and not isinstance(description, str):
+            raise TypeError(f"Description must be a string, got {type(description).__name__}")
+        self.description: Optional[str] = description.strip() if description else ""
+
         self.due_date: Optional[date] = self._parse_date(due_date)
-        self.status: str = status
+
+        if not isinstance(status, str):
+            raise TypeError(f"Status must be a string, got {type(status).__name__}")
+        clean_status = status.strip()
+        if not clean_status:
+            raise ValueError("Status cannot be empty")
+        self.status: str = clean_status
+
+        if not isinstance(completed, bool):
+            raise TypeError(f"Completed must be a boolean, got {type(completed).__name__}")
         self.completed: bool = completed
+
+        if user_id is not None:
+            if not isinstance(user_id, int) or isinstance(user_id, bool):
+                raise TypeError(f"User ID must be an integer, got {type(user_id).__name__}")
+            if user_id <= 0:
+                raise ValueError("User ID must be a positive integer")
         self.user_id: Optional[int] = user_id
 
     @staticmethod
@@ -149,16 +189,34 @@ class Task(db.Model):  # type: ignore[name-defined]
     ) -> None:
         """Update task attributes with type-annotated parameters."""
         if title is not None:
-            self.title = title
+            if not isinstance(title, str):
+                raise TypeError(f"Title must be a string, got {type(title).__name__}")
+            clean_title = title.strip()
+            if not clean_title:
+                raise ValueError("Title cannot be empty")
+            self.title = clean_title
+
         if description is not None:
-            self.description = description
+            if not isinstance(description, str):
+                raise TypeError(f"Description must be a string, got {type(description).__name__}")
+            self.description = description.strip()
+
         if due_date is not None:
             self.due_date = self._parse_date(due_date)
+
         if status is not None:
-            self.status = status
-            if status.lower() == "completed":
+            if not isinstance(status, str):
+                raise TypeError(f"Status must be a string, got {type(status).__name__}")
+            clean_status = status.strip()
+            if not clean_status:
+                raise ValueError("Status cannot be empty")
+            self.status = clean_status
+            if clean_status.lower() == "completed":
                 self.completed = True
+
         if completed is not None:
+            if not isinstance(completed, bool):
+                raise TypeError(f"Completed must be a boolean, got {type(completed).__name__}")
             self.completed = completed
             if completed:
                 self.status = "completed"
