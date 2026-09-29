@@ -1,0 +1,173 @@
+================================================================================
+WEEK 04: IMPLEMENT DATABASE QUERIES AND REFACTOR REST ENDPOINTS
+TEST RESULTS & DATABASE PERSISTENCE VERIFICATION
+================================================================================
+
+SECTION 1: UNIT & INTEGRATION TEST SUITE EXECUTION
+--------------------------------------------------------------------------------
+test_create_task_missing_title_returns_400 (test_routes.TestRoutesDatabasePersistence) ... ok
+test_create_task_with_nonexistent_user_id_returns_400 (test_routes.TestRoutesDatabasePersistence) ... ok
+test_create_task_with_user_relationship_201 (test_routes.TestRoutesDatabasePersistence) ... ok
+test_delete_task_invalid_id_returns_400 (test_routes.TestRoutesDatabasePersistence) ... ok
+test_delete_task_not_found_returns_404 (test_routes.TestRoutesDatabasePersistence) ... ok
+test_delete_task_success_200_removes_from_database (test_routes.TestRoutesDatabasePersistence) ... ok
+test_get_all_tasks_returns_200 (test_routes.TestRoutesDatabasePersistence) ... ok
+test_get_single_task_invalid_id_400 (test_routes.TestRoutesDatabasePersistence) ... ok
+test_get_single_task_not_found_404 (test_routes.TestRoutesDatabasePersistence) ... ok
+test_get_single_task_success_200 (test_routes.TestRoutesDatabasePersistence) ... ok
+test_get_tasks_filter_by_status (test_routes.TestRoutesDatabasePersistence) ... ok
+test_post_task_empty_title_returns_400 (test_routes.TestRoutesDatabasePersistence) ... ok
+test_post_task_missing_title_returns_400 (test_routes.TestRoutesDatabasePersistence) ... ok
+test_post_task_success_201_persists_to_database (test_routes.TestRoutesDatabasePersistence) ... ok
+test_put_task_empty_title_returns_400 (test_routes.TestRoutesDatabasePersistence) ... ok
+test_put_task_not_found_returns_404 (test_routes.TestRoutesDatabasePersistence) ... ok
+test_put_task_success_200_persists_to_database (test_routes.TestRoutesDatabasePersistence) ... ok
+test_user_and_relationship_queries (test_routes.TestRoutesDatabasePersistence) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.482s
+
+OK
+Tests run: 18, Errors: 0, Failures: 0
+Overall Test Suite Status: PASSED
+
+SECTION 2: ENDPOINT PERSISTENCE VERIFICATION (CRUD & ORM QUERIES)
+--------------------------------------------------------------------------------
+1. Testing POST /tasks (Create Task & Verify Database Persistence)
+   HTTP Request : POST /tasks
+   HTTP Status  : 201 Created
+   Response Body:
+   {
+     "message": "Task created successfully",
+     "task": {
+       "completed": false,
+       "created_at": "2026-09-29T18:24:00",
+       "description": "Replace in-memory dictionary storage with SQLAlchemy models and SQLite",
+       "due_date": "2026-10-15",
+       "id": 1,
+       "status": "in_progress",
+       "title": "Implement ORM Queries for Task CRUD",
+       "user_id": null
+     }
+   }
+   [DB VERIFIED] Task ID=1 found in SQLite table 'tasks' with title='Implement ORM Queries for Task CRUD'.
+
+2. Testing GET /tasks/1 (Retrieve Persisted Task by ID)
+   HTTP Request : GET /tasks/1
+   HTTP Status  : 200 OK
+   Response Body:
+   {
+     "completed": false,
+     "created_at": "2026-09-29T18:24:00",
+     "description": "Replace in-memory dictionary storage with SQLAlchemy models and SQLite",
+     "due_date": "2026-10-15",
+     "id": 1,
+     "status": "in_progress",
+     "title": "Implement ORM Queries for Task CRUD",
+     "user_id": null
+   }
+   [DB VERIFIED] Returned JSON matches persisted database record.
+
+3. Testing PUT /tasks/1 (Update Task & Verify Persistence)
+   HTTP Request : PUT /tasks/1
+   HTTP Status  : 200 OK
+   Response Body:
+   {
+     "message": "Task updated successfully",
+     "task": {
+       "completed": true,
+       "created_at": "2026-09-29T18:24:00",
+       "description": "Successfully refactored endpoints to query SQLite via SQLAlchemy",
+       "due_date": "2026-10-15",
+       "id": 1,
+       "status": "completed",
+       "title": "Implement ORM Queries for Task CRUD",
+       "user_id": null
+     }
+   }
+   [DB VERIFIED] SQLite record updated: status='completed', completed=True.
+
+4. Testing GET /tasks (Query All Persisted Tasks via ORM)
+   HTTP Request : GET /tasks
+   HTTP Status  : 200 OK
+   Response Body:
+   {
+     "count": 1,
+     "tasks": [
+       {
+         "completed": true,
+         "created_at": "2026-09-29T18:24:00",
+         "description": "Successfully refactored endpoints to query SQLite via SQLAlchemy",
+         "due_date": "2026-10-15",
+         "id": 1,
+         "status": "completed",
+         "title": "Implement ORM Queries for Task CRUD",
+         "user_id": null
+       }
+     ]
+   }
+   [DB VERIFIED] ORM query returned count=1 records.
+
+5. Testing User-Task Relational ORM Queries
+   HTTP Request : POST /users
+   HTTP Status  : 201 Created
+   HTTP Request : POST /users/1/tasks
+   HTTP Status  : 201 Created
+   HTTP Request : GET /users/1/tasks
+   HTTP Status  : 200 OK
+   Response Body:
+   {
+     "count": 1,
+     "tasks": [
+       {
+         "completed": false,
+         "created_at": "2026-09-29T18:24:01",
+         "description": "",
+         "due_date": null,
+         "id": 2,
+         "status": "pending",
+         "title": "Relational Task for Developer",
+         "user_id": 1
+       }
+     ],
+     "user_id": 1,
+     "username": "developer1"
+   }
+   [DB VERIFIED] User relationship traversed via ORM: user.tasks has 1 tasks.
+
+6. Testing Error Handling: 400 Bad Request
+   HTTP Request : POST /tasks with missing title
+   HTTP Status  : 400 Bad Request
+   Response Body:
+   {
+     "error": "Bad Request",
+     "message": "Field 'title' is required and must be a non-empty string"
+   }
+
+7. Testing Error Handling: 404 Not Found
+   HTTP Request : GET /tasks/999999
+   HTTP Status  : 404 Not Found
+   Response Body:
+   {
+     "error": "Not Found",
+     "message": "Task with id '999999' not found"
+   }
+
+8. Testing DELETE /tasks/1 (Remove from Database)
+   HTTP Request : DELETE /tasks/1
+   HTTP Status  : 200 OK
+   Response Body:
+   {
+     "message": "Task '1' deleted successfully"
+   }
+   [DB VERIFIED] Task ID=1 confirmed deleted from SQLite database (ORM query returned None).
+   HTTP Request : GET /tasks/1 (After Deletion)
+   HTTP Status  : 404 Not Found
+
+================================================================================
+ALL DELIVERABLES & SUCCESS CRITERIA VERIFIED SUCCESSFULLY
+1. All CRUD endpoints refactored to use SQLAlchemy ORM queries: YES
+2. Proper HTTP status codes returned (200, 201, 400, 404): YES
+3. User-task relationship queries implemented and verified: YES
+4. Full database persistence in SQLite verified: YES
+================================================================================
