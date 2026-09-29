@@ -163,3 +163,40 @@ def test_task_model():
     task_dict = task.to_dict()
     assert task_dict["title"] == "Scaffold backend"
     assert task_dict["completed"] is True
+
+
+def test_user_register_and_login():
+    """Verify User.register and User.login functions."""
+    User.clear_registry()
+    user = User.register(username="grace", email="grace@example.com", password="GracePassword123!")
+    assert user.username == "grace"
+    assert user.password_hash != "GracePassword123!"
+    assert user.password_hash != ""
+
+    # Successful login
+    auth = User.login(username="grace", password="GracePassword123!")
+    assert auth is not None
+    assert auth.id == user.id
+
+    # Failed login with wrong password
+    assert User.login(username="grace", password="WrongPassword") is None
+
+    # Failed login with unknown user
+    assert User.login(username="unknown", password="any") is None
+
+
+def test_sample_users_registration_and_login():
+    """Verify registration and login with multiple sample users."""
+    User.clear_registry()
+    sample_users = [
+        {"username": "user_one", "email": "u1@example.com", "password": "PassOne123"},
+        {"username": "user_two", "email": "u2@example.com", "password": "PassTwo456"},
+    ]
+    for u in sample_users:
+        created = User.register(username=u["username"], email=u["email"], password=u["password"])
+        assert created.password_hash != u["password"]
+
+    for u in sample_users:
+        logged_in = User.login(username=u["username"], password=u["password"])
+        assert logged_in is not None
+        assert logged_in.username == u["username"]

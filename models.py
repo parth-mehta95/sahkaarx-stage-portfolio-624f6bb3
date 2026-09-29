@@ -80,6 +80,11 @@ class User(db.Model):  # type: ignore[name-defined]
             return user
         return None
 
+    @classmethod
+    def login(cls, username: str, password: str) -> Optional[User]:
+        """Authenticate user credentials and return user instance if valid."""
+        return cls.authenticate(username=username, password=password)
+
     def get_tasks(self) -> List[Task]:
         """Retrieve all tasks associated with this user."""
         return list(self.tasks)
